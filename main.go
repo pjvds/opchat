@@ -41,21 +41,18 @@ func main() {
 		}
 		c.Bind(&request)
 
-		// TODO: validate
 		if len(request.ThreadId) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "missing thread id",
 			})
 			return
 		}
-
 		if len(request.Message) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "missing message",
 			})
 			return
 		}
-
 		if len(request.ToUserId) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "missing to_user_id",
@@ -68,18 +65,18 @@ func main() {
 			})
 			return
 		}
-		err := db.C("threads").Insert(bson.M{
+
+		if err := db.C("threads").Insert(bson.M{
 			"thread_id":  request.ThreadId,
 			"message":    request.Message,
 			"by_user_id": request.ByUserId,
 			"to_user_id": request.ToUserId,
 			"create_at":  time.Now().UTC(),
-		})
-
-		if err != nil {
+		}); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
+
 		c.String(http.StatusCreated, "created")
 	})
 
