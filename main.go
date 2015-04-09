@@ -14,6 +14,9 @@ var (
 	log = tidy.GetLogger()
 )
 
+type OplogRecord struct {
+}
+
 func main() {
 	dbUrl := "localhost"
 	session, err := mgo.Dial(dbUrl)
@@ -30,49 +33,44 @@ func main() {
 		c.String(http.StatusOK, "pong")
 	})
 
-	router.POST("/thread/:thread_id", func(c *gin.Context) {
-		request := struct {
+	router.POST("/conversations/", func(c *gin.Context) {
+		body := struct {
 			Message  string `json:"message" binding:"required"`
 			ByUserId string `json:"by_user_id" binding:"required"`
 			ToUserId string `json:"to_user_id" binding:"required"`
-			ThreadId string
-		}{
-			ThreadId: c.Params.ByName("thread_id"),
-		}
-		c.Bind(&request)
+		}{}
+		c.Bind(&body)
 
-		if len(request.ThreadId) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "missing thread id",
-			})
-			return
-		}
-		if len(request.Message) == 0 {
+		if len(body.Message) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "missing message",
 			})
 			return
 		}
-		if len(request.ToUserId) == 0 {
+		if len(body.ToUserId) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "missing to_user_id",
 			})
 			return
 		}
-		if len(request.ByUserId) == 0 {
+		if len(body.ByUserId) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "missing by_user_id",
 			})
 			return
 		}
 
-		if err := db.C("threads").Insert(bson.M{
-			"thread_id":  request.ThreadId,
-			"message":    request.Message,
-			"by_user_id": request.ByUserId,
-			"to_user_id": request.ToUserId,
-			"create_at":  time.Now().UTC(),
-		}); err != nil {
+		id := body.ByUserId + "-" + body.ToUserId
+		selector := bson.M{
+			"_id": id}
+		update := bson.M{
+			"by_user_id":      body.ByUserId,
+			"to_user_id":      body.ToUserId,
+			"last_message":    body.Message,
+			"last_message_at": time.Now().UTC(),
+			"create_at":       time.Now().UTC()}
+
+		if _, err := db.C("conversations").Upsert(selector, update); err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
